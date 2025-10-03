@@ -4,7 +4,7 @@ __github__  = "https://github.com/vuviet2k3"
 __version__ = "1.0.0"
 __address__ = "OAEM Lab"
 __history__ = {
-    "3/10/26" : "First Version (1.0.0)" 
+  "3/10/26" : "First Version (1.0.0)" 
 }
 
 import os, sys
@@ -262,22 +262,25 @@ class RunPF(GetData):
             else:
                 pass
             #
-            if fTrf2:
+            if fTrf2 and busa in fTrf2:
                 for idx, bus in enumerate(fTrf2):
                     if bus == busa:
                         self.Ybus[i, i] += 1 / (rTrf2[idx] + 1j * xTrf2[idx]) + (gTrf2[idx] + 1j * bTrf2[idx])
             else:
                 pass
             #
-            if fShunt:
+            if fShunt and busa in fShunt:
                 idxShunt = fShunt.index(busa)
-                self.Ybus[i, i] += 1 / (1j * qShunt[idx])
+                self.Ybus[i, i] += 1 / (1j * qShunt[idxShunt])
             else:
                 pass
 
         
             
-            
+
+
+
+        
 
 
 def main():
