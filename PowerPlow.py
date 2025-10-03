@@ -238,6 +238,7 @@ class RunPF(GetData):
             fBrn = []
         else:
             fBrn, tBrn, rBrn, xBrn, bBrn, rateBrn = zip(*self.BrnLst)
+            Brn = list(zip(fBrn, tBrn))
         #
         if not self.Trf2Lst:
             fTrf2 =[]
@@ -252,19 +253,31 @@ class RunPF(GetData):
         n = len(self.Bus)
         self.Ybus = np.zeros((n, n), dtype=np.complex128)
         
-        for busa in range(len(self.Ybus)):
+        for i in range(len(self.Ybus)):
+            busa = self.Bus[i]
             if fBrn:
-                self.Ybus[busa, busa] += 1 / (rBrn[busa] + 1j * xBrn[busa]) + 1j * bBrn[busa] / 2
+                for idx, ft in enumerate(Brn):
+                    if busa in ft:
+                        self.Ybus[i, i] += 1 / (rBrn[idx] + 1j * xBrn[idx]) + 1j * bBrn[idx] / 2
             else:
-                continue
+                pass
             #
             if fTrf2:
-                if busa in fTrf2:
-                    k = fTrf2.index(busa)
-                    self.Ybus[busa, busa] += 1 / (rTrf2[k] + 1j * xTrf2[k]) + (gTrf2[k] + 1j * bTrf2[k]) 
+                for idx, bus in enumerate(fTrf2):
+                    if bus == busa:
+                        self.Ybus[i, i] += 1 / (rTrf2[idx] + 1j * xTrf2[idx]) + (gTrf2[idx] + 1j * bTrf2[idx])
             else:
-                continue
+                pass
+            #
+            if fShunt:
+                idxShunt = fShunt.index(busa)
+                self.Ybus[i, i] += 1 / (1j * qShunt[idx])
+            else:
+                pass
+
         
+            
+            
 
 
 def main():
