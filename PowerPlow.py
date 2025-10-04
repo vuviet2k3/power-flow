@@ -118,7 +118,10 @@ class GetData:
         vgen = flagPV['vGen [pu]']
         pgen = flagPV['Pgen'].to_numpy()
         if flagOn['MEMO'].tolist()[0].upper() == "KVA":
-            pgen = pgen / 1e3
+            pgen = pgen / self.sBase / 1e3
+        else:
+            pgen = pgen / self.sBase
+    
         self.PVLst = [(pv, v, p) for (pv, v, p) in zip(id, vgen, pgen)]
         #
         print('SET PV:')
@@ -176,6 +179,11 @@ class GetData:
         pk = flagOn['pk'].to_numpy()        # ton that ngan mach
         p0 = flagOn['P0'].to_numpy()        # ton that ko tai
         i0 = flagOn['i0 [%]'].to_numpy()    # dong dien ko tai
+
+        if kv1 < kv2 :
+            self.K = -1
+        elif kv1 > kv2:
+            self.K = 1
         #
         typeTrf2 = flagOn['MEMO'].tolist()[0]
         type = typeTrf2.upper().split(',')
@@ -231,6 +239,7 @@ class RunPF(GetData):
         super().__init__()
         # if self.typePF.upper() == 'NR':
         #     self.NR()
+        print('\n' + 10*'=' + f' POWER FLOW-{self.typePF} ' + 10*'=')
         self.Ybus()
 
     def Ybus(self):
@@ -262,10 +271,16 @@ class RunPF(GetData):
             else:
                 pass
             #
-            if fTrf2 and busa in fTrf2:
-                for idx, bus in enumerate(fTrf2):
-                    if bus == busa:
-                        self.Ybus[i, i] += 1 / (rTrf2[idx] + 1j * xTrf2[idx]) + (gTrf2[idx] + 1j * bTrf2[idx])
+            if fTrf2:
+                if self.K == -1:
+                    busTrf2 = tTrf2
+                elif self.K == 1:
+                    busTrf2 = fTrf2
+                #
+                if busa in busTrf2:
+                    for idx, bus in enumerate(busTrf2):
+                        if bus == busa:
+                            self.Ybus[i, i] += 1 / (rTrf2[idx] + 1j * xTrf2[idx]) + (gTrf2[idx] + 1j * bTrf2[idx])
             else:
                 pass
             #
@@ -274,8 +289,27 @@ class RunPF(GetData):
                 self.Ybus[i, i] += 1 / (1j * qShunt[idxShunt])
             else:
                 pass
-
+            #
+            for j in range(i + 1, len(self.Ybus)):
+                busb = self.Bus[j]
+                if fBrn:
+                    for idx, ft in enumerate(Brn):
+                        if sorted((busa, busb)) == sorted(ft):
+                            self.Ybus[i, j] += -1 / (rBrn[idx] + 1j * xBrn[idx])
+                    #
+                    self.Ybus[j, i] = self.Ybus[i, j]
+                #
+                else:
+                    if fTrf2:
+                        for idx, ft in enumerate(zip(fTrf2, tTrf2)):
+                            if sorted((busa, busb)) == sorted(ft):
+                                self.Ybus[i, j] += -1 / (rTrf2[idx] + 1j * xTrf2[idx])
+                        #
+                        self.Ybus[j ,i] += self.Ybus[i, j]
+        #
+        print(f'YBUS:\n{self.Ybus}')
         
+    # def 
             
 
 
