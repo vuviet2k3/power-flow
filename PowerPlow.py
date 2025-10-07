@@ -28,7 +28,7 @@ class GetData:
     def __init__(self):
         self.data = os.path.join(DATA_PATH, AGVRS.fi)
 
-        print(10*'=' +' SET DATA ' + 10*'=')
+        print(50*'=' +' SET DATA ' + 50*'=')
         self.get_Settings()
         self.get_Bus()
         self.get_Source()
@@ -50,7 +50,7 @@ class GetData:
         self.Epsilon = settingLst.loc[settingLst['##GENERAL'] == 'PF'].iloc[0, 3]
 
         print('\tSBASE\tUNIT\tPF\tNMAX\tEPS')
-        print(f'\t{self.sBase}\t{sUnit}\t{self.typePF}\t{self.nMax}\t{self.Epsilon}')
+        print(f'\t{self.sBase}\t{sUnit.upper()}\t{self.typePF}\t{self.nMax}\t{self.Epsilon}')
 
         if sUnit.upper() == 'KVA':
             self.sBase = self.sBase /1e3
@@ -103,7 +103,7 @@ class GetData:
         if not list(flagSource.index):
             raise ValueError('Khong tim thay data BUS SWING')
         
-        id = flagSource['ID'].tolist()
+        id = flagSource['BUS_ID'].tolist()
         vgen = flagSource['vGen [pu]']
         agen = flagSource['aGen [deg]']
         self.SlackLst = [(s, v, a * math.pi / 180) for (s, v, a) in zip(id, vgen, agen)]
@@ -114,7 +114,7 @@ class GetData:
             print(f'\t{src[0]}\t{src[1]}\t{src[2]}\tp.u')
 
         flagPV = flagOn[flagOn['CODE'] == 2]
-        id = flagPV['ID'].tolist()
+        id = flagPV['BUS_ID'].tolist()
         vgen = flagPV['vGen [pu]']
         pgen = flagPV['Pgen'].to_numpy()
         if flagOn['MEMO'].tolist()[0].upper() == "KVA":
@@ -239,10 +239,10 @@ class RunPF(GetData):
         super().__init__()
         # if self.typePF.upper() == 'NR':
         #     self.NR()
-        print('\n' + 10*'=' + f' POWER FLOW-{self.typePF} ' + 10*'=')
-        self.Ybus()
+        print('\n' + 50*'=' + f' POWER FLOW-{self.typePF} ' + 50*'=')
+        self.get_Ybus()
 
-    def Ybus(self):
+    def get_Ybus(self):
         if not self.BrnLst:
             fBrn = []
         else:
@@ -308,8 +308,78 @@ class RunPF(GetData):
                         self.Ybus[j ,i] += self.Ybus[i, j]
         #
         print(f'YBUS:\n{self.Ybus}')
+    
+    def initial(self):
+        uBus = np.ones((len(self.Bus)))
+        aBus = np.zeros((len(self.Bus)))
+        #
+        fLoad, pLoad, qLoad = zip(*self.LoadLst)
+        pSh = -np.array(pLoad)
+        qSh = -np.array(qLoad)
+        self.idx_Gen = []
+
+        fslack, uslack, aslack = zip(*self.SlackLst)
+        for idx, f in enumerate(fslack):
+            islack = self.Bus.index(f)
+            uBus[islack] = uslack[idx]
+            aBus[islack] = aslack[idx]
+            self.idx_Gen.append(islack)
+        #
+        fPV, uPV, pPV = zip(*self.PVLst)
+        for idx, f in enumerate(fPV):
+            iPV = self.Bus.index(f)
+            uBus[iPV] = uPV[idx]
+            #
+            if f in fLoad:
+                iLoad = fLoad.index(f)
+                pSh[iLoad] += pPV[idx]
+                self.idx_Gen.append(iLoad) 
+
+        qSh = np.delete(qSh, self.idx_Gen, axis=0)
         
-    # def 
+        #
+        return uBus, aBus, np.hstack((pSh, qSh))
+    
+    def update(self, uBus, aBus):
+        n = len(uBus)
+        p, q = np.zeros((n)), np.zeros((n))
+
+        for i in range(n):
+            ui = abs(uBus[i])
+            ai = aBus[i]
+            for j in range(i + 1, n):
+                uj = abs(uBus[j])
+                aj = aBus[j]
+                Yij = abs(self.Ybus[i, j])
+                aij = cmath.phase(self.Ybus[i, j])
+                #
+                p[i] += ui * uj * Yij * math.cos(aij - ai + aj)
+                q[i] -= ui * uj * Yij * math.sin(aij - ai + aj)
+        #
+        print(p)
+        print(q)
+        print(self.idx_Gen)
+        s = np.hstack((np.delete(p, self.idx_Gen[0], axis=0), np.delete(q, self.idx_Gen, axis=0)))
+        return s
+
+    def solve(self):
+        uBus, aBus, Sh = self.initial()
+        s = self.update(uBus, aBus)
+        
+
+
+        
+        
+
+
+                
+        
+
+        
+
+        
+    # def Jacobi(self, uBus, aBus):
+
             
 
 
@@ -319,5 +389,6 @@ class RunPF(GetData):
 
 def main():
     PF = RunPF()
+    PF.solve()
 if __name__=="__main__":
     main()
