@@ -3,9 +3,7 @@ __email__   = "vuvanviet2k3@gmail.com"
 __github__  = "https://github.com/vuviet2k3"
 __version__ = "1.0.0"
 __address__ = "OAEM Lab"
-__history__ = {
-  "3/10/26" : "First Version (1.0.0)" 
-}
+
 
 import os, sys
 import time, cmath, math
