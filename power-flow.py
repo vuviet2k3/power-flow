@@ -1,6 +1,7 @@
 __author__  = 'Vu Van Viet'
 __email__   = 'vuvanviet2k3@gmail.com'
 __address__ = 'OAEM Lab'
+__version__ = '1.0.0'
 
 #------------------------------------------------
 import math
