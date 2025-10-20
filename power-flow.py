@@ -6,7 +6,9 @@ __version__ = '1.0.0'
 #------------------------------------------------
 import math
 import openpyxl
-import utils, psm
+import utils, solver
+import __print__
+__print__.icon()
 
 
 class DATA:
@@ -60,7 +62,7 @@ class DATA:
                     memo = memo * 1e3
             #
             v1 = v['PLOAD'] if v['PLOAD'] else 0
-            v2 = v['PLOAD'] if v['PLOAD'] else 0
+            v2 = v['QLOAD'] if v['QLOAD'] else 0
             v1pu = v1 * memo / self.sbase
             v2pu = v2 * memo / self.sbase
             self.busAll[key] = [v1pu, v2pu]
@@ -111,20 +113,23 @@ class DATA:
             self.lineAll[k] = [complex(r, x), complex(0, b)]
 
         # TRF2
+        # Neu co trf2 thi trf2ID se trung voi lineID
+        # ->  New trf2ID = trf2ID + len(lineID)
+        kline = len(self.lineAll.keys())
         self.x2All = {}
         memo1, memo2 = 1, 1
         for k, v in self.Atrf2.items():
             b1, b2 = v['BUS_ID1'], v['BUS_ID2']
-            self.brnC0[k + 10000] = [b1, b2]
-            self.brnC1.setdefault(b1, []).append(k + 10000)
-            self.brnC1.setdefault(b2, []).append(k + 10000)
+            self.brnC0[k + kline] = [b1, b2]
+            self.brnC1.setdefault(b1, []).append(k + kline)
+            self.brnC1.setdefault(b2, []).append(k + kline)
             #
             unit = v['MEMO']
             if unit:
                 p1, p2 = unit.split(',')
                 p1, p2 = p1.strip(), p2.strip()
                 if p1.upper() not in {'MVA', 'KVA'}:
-                    title = 'MEMO VA SHEET TRF2 not in MVA, KVA'
+                    title = 'MEMO S(VA) SHEET TRF2 not in MVA, KVA'
                     utils.warning(title)
                     return False
                 elif p1.upper() == 'MVA':
@@ -133,7 +138,7 @@ class DATA:
                     memo1 = memo1 * 1e3
                 #
                 if p2.upper() not in {'MW', 'KW'}:
-                    title = 'MEMO W SHEET TRF2 not in MW, KW'
+                    title = 'MEMO P(W) SHEET TRF2 not in MW, KW'
                     utils.warning(title)
                     return False
                 elif p2.upper() == 'MW':
@@ -149,9 +154,9 @@ class DATA:
             #
             kv1, kv2 = v['kV1'], v['kV2']
             if kv1 > kv2:
-                self.x2All[k + 10000] = [b1, complex(r, x), complex(g, -b)]
+                self.x2All[k + kline] = [b1, complex(r, x), complex(g, -b)]
             else:
-                self.x2All[k + 10000] = [b2, complex(r, x), complex(g, -b)]
+                self.x2All[k + kline] = [b2, complex(r, x), complex(g, -b)]
 
         # TRF3
 
@@ -179,10 +184,11 @@ class DATA:
 class PF(DATA):
     def __init__(self, input):
         super().__init__(input)
-        self.Run()
+
+
 
     def runPSM(self, nMax, Eps):
-        return psm.Run(
+        return solver.PSM(
                     abus = self.busAll,
                     aslack = self.slackAll,
                     brnC0 = self.brnC0,
@@ -193,9 +199,9 @@ class PF(DATA):
                     nMax = nMax,
                     Eps = Eps
                 )
-
+    #
     def runNR(self, nMax, Eps):
-        return nr.Run(
+        return solver.NR(
                     abus = self.busAll,
                     aslack = self.slackAll,
                     apv = self.pvAll,
@@ -226,6 +232,7 @@ class PF(DATA):
 
 
 if __name__=='__main__':
-    input = r"D:\OAEM Lab\CodePy\Power Flow\data\test_2.xlsx"
+    input = r"D:\OAEM Lab\CodePy\Power Flow\data\ieee33.xlsx"
     # datap = DATA(input)
-    PF(input)
+    pf = PF(input).Run()
+
