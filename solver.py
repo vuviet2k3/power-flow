@@ -7,9 +7,6 @@ __version__ = '1.0.0'
 
 import tkinter as tk
 from tkinter import messagebox
-import numpy as np
-import cmath, math
-
 
 
 # warning
@@ -32,7 +29,7 @@ class PSM:
                  Eps=1e-5):
         """
         Run Power Summation Method - PSM
-        YEU CAU : YEU CAU thong so he don vi TUONG DOI - p.u
+        YEU CAU : thong so he don vi TUONG DOI - p.u
         abus    : {busID: [pLoad, qLoad]}
         aslack  : {busID: [vGen, aGen]}
         apv     : {busID: [vGen, pGen]}
@@ -56,7 +53,7 @@ class PSM:
         self.nMax = nMax
         self.Eps = Eps
 
-        self.slove()
+        self.solve()
 
 
     #  check source
@@ -202,7 +199,7 @@ class PSM:
         return True
 
 
-    def slove(self):
+    def solve(self):
         for k, v in self.aslack.items():
             slack = k
             param = v
@@ -226,6 +223,11 @@ class PSM:
 
         # solver
         for iter in range(1, self.nMax+1):
+            if iter == self.nMax:
+                title = 'KHONG HOI TU'
+                warning(title)
+                return None
+
             sbus = self.power_shunt(ubus)
             sbrn1 = self.backward_sweep(ubus, sbus, slack, re_mapping)
             ubusN = self.forward_sweep(ubus, sbrn1, mapping)
@@ -251,7 +253,7 @@ class NR:
                  Eps=1e-5):
         """
         Run Power Summation Method - PSM
-        YEU CAU : YEU CAU thong so he don vi TUONG DOI - p.u
+        YEU CAU : thong so he don vi TUONG DOI - p.u
         abus    : {busID: [pLoad, qLoad]}
         aslack  : {busID: [vGen, aGen]}
         apv     : {busID: [vGen, pGen]}
@@ -275,7 +277,43 @@ class NR:
         self.nMax = nMax
         self.Eps = Eps
 
-        self.slove()
+        self.solve()
+
+    def Ybus(self):
+        bus = list(self.brnC1.keys())
+        n = len(self.brnC0.keys())
+        visited = set()
+
+        Ybus = [[0]*n]*n
+        for k, v in self.brnC1.items():
+            i = bus.index(k)
+            for line in v:
+                # line
+                if line < n:
+                    v1 = self.aline[line]
+                    Ybus[i][i] += 1/v1[0] + v1[1]/2
+
+                    if line not in visited:
+                        v2 = self.brnC0[line]
+                        node = v2[0] if v2[0] != bus else v2[1]
+                        j = bus.index(node)
+                        Ybus[i][j] = -1/v1[0]
+                        Ybus[j][i] = Ybus[i][j]
+                        visited.add(line)
+                # trf2
+                elif line > n:
+                    v1 = self.atrf2[line]
+                    Ybus[i][i] += 1/v1[1]
+                    if v1[0] == bus:
+                        Ybus[i][i] += v1[2]
+
+                    if line not in visited:
+                        v2 = self.brnC1[line]
+                        node = v2[0] if v2[0] != bus else v2[1]
+                        j = bus.index(node)
+                        Ybus[i][j] = -1/v[1]
+                        Ybus[j][i] = Ybus[i][j]
+                        visited.add(line)
 
 
 
@@ -283,13 +321,17 @@ class NR:
 
 
 
-# if __name__=='__main__':
-#     brnC0 = {1: [1, 2], 2: [2, 3], 3: [3, 4], 4: [4, 5], 5: [3, 6], 6: [6, 7], 7: [6, 8], 8: [4, 8], 9: [8, 9]}
-#     brnC1 = {1: [1], 2: [1, 2], 3: [2, 5, 3], 4: [3, 8, 4], 5: [4], 6: [5, 6], 7: [6], 8: [8, 9], 9: [9]}
-#     slack = 1
-#     aline =
-#     psm = Run(brnC0=brnC0, brnC1=brnC1)
-#     if psm.check_loop(slack):
-#         print('LOOP')
-#     else:
-#         print('NO LOOP')
+
+
+
+    def solve(self):
+        self.Ybus()
+
+
+
+if __name__=='__main__':
+    brnC0 = {1: [1, 2], 2: [2, 3], 3: [3, 4], 4: [4, 5], 5: [3, 6], 6: [6, 7], 7: [6, 8], 8: [4, 8], 9: [8, 9]}
+    brnC1 = {1: [1], 2: [1, 2], 3: [2, 5, 3], 4: [3, 8, 4], 5: [4], 6: [5, 6], 7: [6], 8: [8, 9], 9: [9]}
+    print(brnC0.values())
+#
+#     nr = NR(brnC0=brnC0, brnC1=brnC1)
