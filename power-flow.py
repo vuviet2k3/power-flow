@@ -1,7 +1,6 @@
 __author__  = 'Vu Van Viet'
 __email__   = 'vuvanviet2k3@gmail.com'
-__address__ = 'OAEM Lab'
-__version__ = '1.0.0'
+__date__    = 'HUST/2025'
 
 #------------------------------------------------
 import math
@@ -211,7 +210,7 @@ class PF(DATA):
                     atrf2 = self.x2All,
                     ashunt = self.shuntAll,
                     nMax = nMax,
-                    Esp = Eps
+                    Eps = Eps
                 )
 
     def Run(self):
@@ -232,7 +231,7 @@ class PF(DATA):
 
 
 if __name__=='__main__':
-    input = r"D:\OAEM Lab\CodePy\Power Flow\data\ieee33.xlsx"
+    input = r"D:\OAEM Lab\CodePy\Power Flow\data\test_2.xlsx"
     # datap = DATA(input)
     pf = PF(input).Run()
 
