@@ -1,12 +1,11 @@
-__author__ = 'Vu Van Viet'
-__email__ = 'vuvanviet2k3@gmail.com'
-__address__ = 'OAEM Lab'
-__version__ = '1.0.0'
-
+__author__  = 'Vu Van Viet'
+__email__   = 'vuvanviet2k3@gmail.com'
+__date__    = 'HUST/2025'
 #-------------------------------------------------
 
 import tkinter as tk
 from tkinter import messagebox
+import numpy as np
 
 
 # warning
@@ -119,16 +118,16 @@ class PSM:
             s = complex(0, 0)
             #
             for brn in self.brnC1[k]:
-                if brn in self.aline.keys():
+                if brn in self.aline:
                     line = self.aline[brn]
                     s += line[1] / 2
                 #
-                if brn in self.atrf2.keys():
+                if brn in self.atrf2:
                     x2 = self.atrf2[brn]
                     if k == x2[0]:
                         s += x2[2]
             #
-            if k in self.ashunt.keys():
+            if k in self.ashunt:
                 s += self.ashunt[k]
             sbus[k] += s.conjugate() * abs(ubus[k]) ** 2
 
@@ -220,8 +219,9 @@ class PSM:
         ubus = {}
         for k, v in self.abus.items():
             ubus[k] = complex(1, 0)
+        ubus[slack] = complex(param[0], param[1])
 
-        # solver
+        # solve
         for iter in range(1, self.nMax+1):
             if iter == self.nMax:
                 title = 'KHONG HOI TU'
@@ -244,6 +244,7 @@ class NR:
     def __init__(self,
                  abus=None,
                  aslack=None,
+                 apv=None,
                  brnC0=None,
                  brnC1=None,
                  aline=None,
@@ -280,42 +281,98 @@ class NR:
         self.solve()
 
     def Ybus(self):
-        bus = list(self.brnC1.keys())
-        n = len(self.brnC0.keys())
-        visited = set()
+        bus = list(self.abus.keys())
+        n = len(bus)
+        bus_idx = {bus[i]: i for i in range(n)}
+        Y = np.zeros((n, n), dtype=complex)
 
-        Ybus = [[0]*n]*n
-        for k, v in self.brnC1.items():
-            i = bus.index(k)
-            for line in v:
-                # line
-                if line < n:
-                    v1 = self.aline[line]
-                    Ybus[i][i] += 1/v1[0] + v1[1]/2
+        for line, v in self.brnC0.items():
+            b1, b2 = v[0], v[1]
+            i, j = bus_idx[b1], bus_idx[b2]
+            # line
+            if line in self.aline:
+                z, b = self.aline[line]
+                y = 1 / z
 
-                    if line not in visited:
-                        v2 = self.brnC0[line]
-                        node = v2[0] if v2[0] != bus else v2[1]
-                        j = bus.index(node)
-                        Ybus[i][j] = -1/v1[0]
-                        Ybus[j][i] = Ybus[i][j]
-                        visited.add(line)
-                # trf2
-                elif line > n:
-                    v1 = self.atrf2[line]
-                    Ybus[i][i] += 1/v1[1]
-                    if v1[0] == bus:
-                        Ybus[i][i] += v1[2]
+                Y[i, i] += y + b/2
+                Y[j, j] += y + b/2
+                Y[i, j] -= y
+                Y[j, i] -= y
+            # trf2
+            if line in self.atrf2:
+                b_ref, z, shunt = self.atrf2[line]
+                y = 1 / z
 
-                    if line not in visited:
-                        v2 = self.brnC1[line]
-                        node = v2[0] if v2[0] != bus else v2[1]
-                        j = bus.index(node)
-                        Ybus[i][j] = -1/v[1]
-                        Ybus[j][i] = Ybus[i][j]
-                        visited.add(line)
+                Y[i, i] += y
+                Y[j, j] += y
+                Y[i, j] -= y
+                Y[j, i] -= y
+                if b_ref == b1:
+                    Y[i, i] += shunt
+                elif b_ref == b2:
+                    Y[j, j] += shunt
+            # shunt
+            if b1 in self.ashunt:
+                v = self.ashunt[b1]
+                Y[i, i] += v
+            elif b2 in self.ashunt:
+                v = self.ashunt[b2]
+                Y[j, j] += v
 
+        return Y
 
+    def Jacobi(self, ubus, abus, Ybus):
+        bus = list(self.abus.keys())
+        n = len(bus)
+        bus_idx = {bus[i]:i for i in range(n)}
+        J1 = np.zeros((n, n), dtype=float)
+        J2 = np.zeros((n, n), dtype=float)
+        J3 = np.zeros((n, n), dtype=float)
+        J4 = np.zeros((n, n), dtype=float)
+
+        # J1
+        for line, v in self.brnC0.items():
+            b1, b2 = v[0], v[1]
+            i, j = bus_idx[b1], bus_idx[b2]
+            u1, u2 = abs(ubus[i]), abs(ubus[j])
+            a1, a2 = abus[i], abus[j]
+            Yij, aij = abs(Ybus[i, j]), np.angle(Ybus[i, j])
+            Yii, aii = abs(Ybus[i, i]), np.angle(Ybus[i, i])
+            Yjj, ajj = abs(Ybus[j, j]), np.angle(Ybus[j, j])
+
+            # J1
+            J1[i, i] += u1 * u2 * Yij * np.sin(aij - a1 + a2)
+            J1[j ,j] += u2 * u1 * Yij * np.sin(aij - a2 + a1)
+            J1[i, j] = -u1 * u2 * Yij * np.sin(aij - a1 + a2)
+            J1[j, i] = -u2 * u1 * Yij * np.sin(aij - a2 + a1)
+
+            # J2
+            if J2[i ,i] == 0:
+                J2[i ,i] = 2 * u1 * Yii * np.cos(aii)
+            if J2[j ,j] == 0:
+                J2[j, j] = 2 * u2 * Yjj * np.cos(ajj)
+            J2[i, i] += u2 * Yij * np.cos(aij - a1 + a2)
+            J2[j, j] += u1 * Yij * np.cos(aij - a2 + a1)
+            J2[i, j] = u2 * Yij * np.cos(aij - a1 + a2)
+            J2[j, i] = u1 * Yij * np.cos(aij - a2 + a1)
+
+            # J3
+            J3[i, i] += u1 * u2 * Yij * np.cos(aij - a1 + a2)
+            J3[j ,j] += u2 * u1 * Yij * np.cos(aij - a2 + a1)
+            J3[i, j] = -u1 * u2 * Yij * np.cos(aij - a1 + a2)
+            J3[j, i] = -u2 * u1 * Yij * np.cos(aij - a2 + a1)
+
+            # J4
+            if J4[i ,i] == 0:
+                J4[i ,i] = -2 * u1 * Yii * np.sin(aii)
+            if J4[j ,j] == 0:
+                J4[j, j] = -2 * u2 * Yjj * np.cos(ajj)
+            J4[i, i] -= u2 * Yij * np.sin(aij - a1 + a2)
+            J4[j, j] -= u1 * Yij * np.sin(aij - a2 + a1)
+            J4[i, j] = -u2 * Yij * np.sin(aij - a1 + a2)
+            J4[j, i] = -u1 * Yij * np.sin(aij - a2 + a1)
+
+        
 
 
 
@@ -325,13 +382,39 @@ class NR:
 
 
     def solve(self):
-        self.Ybus()
+        Ybus = self.Ybus()
+        self.
 
 
 
-if __name__=='__main__':
-    brnC0 = {1: [1, 2], 2: [2, 3], 3: [3, 4], 4: [4, 5], 5: [3, 6], 6: [6, 7], 7: [6, 8], 8: [4, 8], 9: [8, 9]}
-    brnC1 = {1: [1], 2: [1, 2], 3: [2, 5, 3], 4: [3, 8, 4], 5: [4], 6: [5, 6], 7: [6], 8: [8, 9], 9: [9]}
-    print(brnC0.values())
+class GAMSPY:
+    def __init__(self,
+                 abus=None,
+                 aslack=None,
+                 apv=None,
+                 brnC0=None,
+                 brnC1=None,
+                 aline=None,
+                 atrf2=None,
+                 ashunt=None,
+                 solver='cplex'):
+        self.abus = abus
+        self.aslack = aslack
+        self.apv = apv
+        self.brnC0 = brnC0
+        self.brnC1 = brnC1
+        self.aline = aline
+        self.atrf2 = atrf2
+        self.ashunt = ashunt
+        self.solver = solver
+
+    def define_Set(self):
+
+
+
+# if __name__=='__main__':
+#     brnC0 = {1: [1, 2], 2: [2, 3], 3: [3, 4], 4: [4, 5], 5: [3, 6], 6: [6, 7], 7: [6, 8], 8: [4, 8], 9: [8, 9]}
+#     brnC1 = {1: [1], 2: [1, 2], 3: [2, 5, 3], 4: [3, 8, 4], 5: [4], 6: [5, 6], 7: [6], 8: [8, 9], 9: [9]}
+#     print(brnC0.values())
 #
 #     nr = NR(brnC0=brnC0, brnC1=brnC1)
