@@ -269,6 +269,7 @@ class NR:
         """
         self.abus = abus
         self.aslack = aslack
+        self.apv = apv
         self.brnC0 = brnC0
         self.brnC1 = brnC1
         #
@@ -278,7 +279,8 @@ class NR:
         self.nMax = nMax
         self.Eps = Eps
 
-        self.solve()
+        # self.solve()
+        self.Ybus()
 
     def Ybus(self):
         bus = list(self.abus.keys())
@@ -319,9 +321,10 @@ class NR:
                 v = self.ashunt[b2]
                 Y[j, j] += v
 
+        print(Y)
         return Y
 
-    def Jacobi(self, ubus, abus, Ybus):
+    def Jacobi(self, ubus, abus, Ybus, slackID, pvID):
         bus = list(self.abus.keys())
         n = len(bus)
         bus_idx = {bus[i]:i for i in range(n)}
@@ -336,6 +339,12 @@ class NR:
             i, j = bus_idx[b1], bus_idx[b2]
             u1, u2 = abs(ubus[i]), abs(ubus[j])
             a1, a2 = abus[i], abus[j]
+            sl, pv = int(), list()
+            sl = slackID[0]
+            pv.append(sl)
+            for pv in pvID:
+                pv.append(bus_idx[pv])
+
             Yij, aij = abs(Ybus[i, j]), np.angle(Ybus[i, j])
             Yii, aii = abs(Ybus[i, i]), np.angle(Ybus[i, i])
             Yjj, ajj = abs(Ybus[j, j]), np.angle(Ybus[j, j])
@@ -372,18 +381,49 @@ class NR:
             J4[i, j] = -u2 * Yij * np.sin(aij - a1 + a2)
             J4[j, i] = -u1 * Yij * np.sin(aij - a2 + a1)
 
-        
+        J1 = np.delete(np.delete(J1, obj=sl, axis=0), obj=pv, axis=1) # xoa hang, cot
+        J2 = np.delete(J2, obj=sl, axis=0)
+        J3 =np.delete(np.delete(J3, obj=pv, axis=0), obj=pv, axis=1)
+        J4 = np.delete(J4, obj=pv, axis=0)
+        J = np.vstack((np.hstack((J1, J2)), np.hstack((J3, J4))))
+        return J
 
+    def power_bus(self, ubus, abus, Ybus, slackID, pvID):
+        bus = list(ubus.keys())
+        n = len(ubus)
+        bus_idx = {bus[i]: i for i in range(n)}
+        P = np.zeros(n, dtype=float)
+        Q = np.zeros(n, dtype=float)
+        sl, pv = [], []
+        sl = slackID[0]
+        pv.append(sl)
+        for pv in pvID:
+            pv.append(bus_idx[pv])
 
+        for line, v in self.brnC0.items():
+            b1, b2 = v[0], v[1]
+            i, j = bus_idx[b1], bus_idx[b2]
+            ui, uj = abs(ubus[i]), abs(ubus[j])
+            ai, aj = abus[i], abus[j]
+            Yij, aij = abs(Ybus[i, j]), np.angle(Ybus[i, j])
 
+            P[i] += ui * uj * Yij * np.cos(aij - ai + aj)
+            P[j] += uj * ui * Yij * np.cos(aij - aj + ai)
+            Q[i] -= ui * uj * Yij * np.sin(aij - ai + aj)
+            Q[j] -= uj * ui * Yij * np.sin(aij - aj + ai)
 
+        P = np.delete(P, obj=pv)
+        Q = np.delete(Q, obj=sl)
+        S = np.vstack((P, Q))
 
-
+        return S
 
 
     def solve(self):
         Ybus = self.Ybus()
-        self.
+        slackID = list(self.aslack.keys())
+        pvID = list(self.apv.keys())
+
 
 
 
@@ -408,7 +448,7 @@ class GAMSPY:
         self.ashunt = ashunt
         self.solver = solver
 
-    def define_Set(self):
+    # def define_Set(self):
 
 
 
