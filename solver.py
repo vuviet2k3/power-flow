@@ -1,6 +1,12 @@
 __author__  = 'Vu Van Viet'
 __email__   = 'vuvanviet2k3@gmail.com'
 __date__    = 'HUST/2025'
+
+"""
+10/10/25: 
+    Chua fix MBA 3 cuon day cho NR [idea: convert 3 nut -> 4 nut]
+    Da test voi pss/e grid 3 bus: eps = 0
+"""
 #-------------------------------------------------
 
 import tkinter as tk
@@ -339,11 +345,11 @@ class NR:
             i, j = bus_idx[b1], bus_idx[b2]
             u1, u2 = abs(ubus[i]), abs(ubus[j])
             a1, a2 = abus[i], abus[j]
-            sl, pv = int(), list()
+            sl, genr = int(), list()
             sl = slackID[0]
-            pv.append(sl)
+            genr.append(sl)
             for pv in pvID:
-                pv.append(bus_idx[pv])
+                genr.append(bus_idx[pv])
 
             Yij, aij = abs(Ybus[i, j]), np.angle(Ybus[i, j])
             Yii, aii = abs(Ybus[i, i]), np.angle(Ybus[i, i])
@@ -394,7 +400,7 @@ class NR:
         bus_idx = {bus[i]: i for i in range(n)}
         P = np.zeros(n, dtype=float)
         Q = np.zeros(n, dtype=float)
-        sl, pv = [], []
+        sl, pv = int(), list()
         sl = slackID[0]
         pv.append(sl)
         for pv in pvID:
@@ -423,6 +429,11 @@ class NR:
         Ybus = self.Ybus()
         slackID = list(self.aslack.keys())
         pvID = list(self.apv.keys())
+
+
+        # in
+
+
 
 
 
@@ -458,3 +469,4 @@ class GAMSPY:
 #     print(brnC0.values())
 #
 #     nr = NR(brnC0=brnC0, brnC1=brnC1)
+
