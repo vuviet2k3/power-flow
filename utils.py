@@ -6,6 +6,7 @@ __date__    = 'HUST/2025'
 
 import tkinter as tk
 from tkinter import messagebox
+import random
 
 
 def warning(title):
@@ -118,7 +119,49 @@ def ReadInput2Sheet(work_book=None, sheet_name=None):
 
 
 
-# def WriteOutput2Sheet(work_book=None, sheet_name=None):
+def WriteOutput2Sheet(wbOutput=None, sheet_name=None, opt=None):
+    """
+    opt = dict{
+    char1: list()
+    char2: list()
+    ...
+    charn: list()
+    }
+    :return -> True : OK!
+    :return -> Flase: ERROR! -> :return ERROR
+    """
+    if wbOutput is None:
+        title = f'WORKBOOK NOT LOADED YET'
+        warning(title)
+        return False
+
+    # elif work_book.endswith()
+
+    if sheet_name is None:
+        sheet_name = 'SHEET' + str(random.randint(1, 1000))
+
+    ws = wb.active
+    ws.title = sheet_name.upper()
+    j = 1
+    ws.cell(1, j).value = f'##{sheet_name.upper()} DATA'
+    for k, v in opt.items():
+        ws.cell(2, j).value = str(k.upper())
+        for i in range(len(v)):
+            ws.cell(i+3, j).value = v[i]
+        j += 1
+
+
+
+# if __name__=='__main__':
+#     from openpyxl import Workbook
+#     wb = Workbook()
+#     opt = {
+#         'ID': [1,2,3],
+#         'name': ["bus1","bus2","bus3"],
+#         'kv': [12, 12, 12],
+#         'pu': [1.0,1.0,1.0]
+#     }
+#     WriteOutput2Sheet(wb, sheet_name='bus', opt=opt)
 
 
 
