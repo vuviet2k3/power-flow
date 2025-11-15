@@ -7,7 +7,8 @@ import math
 import openpyxl
 import utils, solver
 import __print__
-__print__.icon()
+# __print__.icon()
+
 
 
 class DATA:
